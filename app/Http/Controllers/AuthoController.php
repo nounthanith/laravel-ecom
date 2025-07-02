@@ -61,4 +61,38 @@ class AuthoController extends Controller
         $request->user()->tokens()->delete();
         return response()->json(['message' => 'Logged out successfully']);
     }
+
+    //Delete Account 
+    public function deleteAccount(Request $request)
+    {
+        //check if user not found
+        if (!$request->user()) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        $request->user()->delete();
+        return response()->json(['message' => 'Account deleted successfully']);
+    }
+
+    // Reset Password
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|string|email',
+            'password' => 'required|string|min:8',
+
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json(['message' => 'Password reset successfully']);
+    }
 }
