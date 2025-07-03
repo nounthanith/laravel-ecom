@@ -84,4 +84,71 @@ class ProductController extends Controller
 
         return response()->json($product);
     }
+
+    //search product
+    public function search(Request $request)
+    {
+        $request->validate([
+            'search' => 'nullable|string',
+            'min_price' => 'nullable|numeric',
+            'max_price' => 'nullable|numeric',
+        ]);
+
+        $search = $request->search;
+        $min_price = $request->min_price;
+        $max_price = $request->max_price;
+
+        $products = Product::query()
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('category', function ($q2) use ($search) {
+                            $q2->where('name', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($min_price, function ($query, $minPrice) {
+                $query->where('price', '>=', $minPrice);
+            })
+            ->when($max_price, function ($query, $maxPrice) {
+                $query->where('price', '<=', $maxPrice);
+            })
+            ->when(!$search && !$min_price && !$max_price, function ($query) {
+                $query->latest()->limit(10);
+            })
+            ->get();
+
+        $products = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => $product->price,
+                'stock' => $product->stock,
+                'image' => $product->image ? asset('storage/' . $product->image) : null,
+            ];
+        })->values();
+
+        return response()->json($products);
+    }
+
+    public function getProductByCategory($cateId)
+    {
+        $category  = Category::findOrFail($cateId);
+        $products = $category->products()->paginate(10);
+        $featuredProducts = $category->products()->where('is_featured', true)->get();
+
+        $products = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => $product->price,
+                'stock' => $product->stock,
+                'image' => $product->image ? asset('storage/' . $product->image) : null,
+                'is_featured' => $product->is_featured,
+            ];
+        })->values();
+        return response()->json($products);
+    }
 }
